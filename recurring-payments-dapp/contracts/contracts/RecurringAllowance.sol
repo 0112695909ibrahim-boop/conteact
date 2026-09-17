@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title RecurringAllowance
- * @desc عقد ذكي لإدارة الاشتراكات والسحوبات المتكررة بدون أطراف خارجية.
+ * @notice عقد ذكي لإدارة الاشتراكات والسحوبات المتكررة بدون أطراف خارجية.
  */
 contract RecurringAllowance is ReentrancyGuard {
     using SafeERC20 for IERC20;
