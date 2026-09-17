@@ -1,0 +1,22 @@
+{
+  "name": "merchant-worker",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "ethers": "^6.17.0",
+    "node-cron": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^7.0.2"
+  }
+}
