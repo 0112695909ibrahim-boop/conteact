@@ -27,7 +27,9 @@ export default function Home() {
   const { writeContract: createAllowance, isPending: isCreating } = useWriteContract()
   const { writeContract: cancelAllowance, isPending: isCanceling } = useWriteContract()
 
-  const validAddresses = isAddress(recipient) && isAddress(token)
+  const recipientAddress = recipient.trim()
+  const tokenAddress = token.trim()
+  const validAddresses = isAddress(recipientAddress) && isAddress(tokenAddress)
   const validAmount = amount.trim() !== '' && Number(amount) > 0
   const validDays = days.trim() !== '' && Number(days) >= 1
 
@@ -37,7 +39,7 @@ export default function Home() {
     functionName: 'getAllowance',
     args:
       isConnected && address && validAddresses
-        ? [address, recipient as `0x${string}`, token as `0x${string}`]
+        ? [address, recipientAddress, tokenAddress]
         : undefined,
     query: { enabled: isConnected && !!address && validAddresses },
   })
@@ -54,7 +56,7 @@ export default function Home() {
   }
 
   const handleApprove = () => {
-    if (!isAddress(token)) {
+    if (!isAddress(tokenAddress)) {
       setMessage('Enter a valid ERC20 token address first.')
       return
     }
@@ -62,7 +64,7 @@ export default function Home() {
     try {
       getAmountAndPeriod()
       approveToken({
-        address: token,
+        address: tokenAddress,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [CONTRACT_ADDRESS, maxUint256],
@@ -74,7 +76,7 @@ export default function Home() {
   }
 
   const handleCreate = () => {
-    if (!isAddress(recipient) || !isAddress(token)) {
+    if (!isAddress(recipientAddress) || !isAddress(tokenAddress)) {
       setMessage('Enter valid recipient and token addresses.')
       return
     }
@@ -85,7 +87,7 @@ export default function Home() {
         address: CONTRACT_ADDRESS,
         abi: CONTRACT_ABI,
         functionName: 'createAllowance',
-        args: [recipient, token, amountInWei, periodInSeconds],
+        args: [recipientAddress, tokenAddress, amountInWei, periodInSeconds],
       })
       setMessage('Allowance transaction sent. Confirm it in your wallet.')
     } catch (error) {
@@ -94,7 +96,7 @@ export default function Home() {
   }
 
   const handleCancel = () => {
-    if (!isAddress(recipient) || !isAddress(token)) {
+    if (!isAddress(recipientAddress) || !isAddress(tokenAddress)) {
       setMessage('Enter valid recipient and token addresses.')
       return
     }
@@ -103,7 +105,7 @@ export default function Home() {
       address: CONTRACT_ADDRESS,
       abi: CONTRACT_ABI,
       functionName: 'cancelAllowance',
-      args: [recipient, token],
+      args: [recipientAddress, tokenAddress],
     })
     setMessage('Cancel transaction sent. Confirm it in your wallet.')
   }
