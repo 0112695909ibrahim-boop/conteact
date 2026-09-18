@@ -19,6 +19,29 @@ const abi = [
 ];
 
 const contract = new ethers.Contract(contractAddress, abi, wallet);
+const LOG_CHUNK_SIZE = 50_000;
+
+async function getAllowanceCreatedEvents() {
+  const filter = contract.filters.AllowanceCreated(null, merchantAddress);
+  const latestBlock = await provider.getBlockNumber();
+  const configuredStartBlock = Number(process.env.START_BLOCK || 0);
+  const startBlock = Number.isFinite(configuredStartBlock)
+    ? configuredStartBlock
+    : 0;
+  const events = [];
+
+  for (
+    let fromBlock = startBlock;
+    fromBlock <= latestBlock;
+    fromBlock += LOG_CHUNK_SIZE + 1
+  ) {
+    const toBlock = Math.min(fromBlock + LOG_CHUNK_SIZE, latestBlock);
+    const chunk = await contract.queryFilter(filter, fromBlock, toBlock);
+    events.push(...chunk);
+  }
+
+  return events;
+}
 
 // 3. الدالة الرئيسية لفحص وسحب الاشتراكات
 async function processRecurringPayments() {
@@ -26,8 +49,7 @@ async function processRecurringPayments() {
 
   try {
     // جلب كل أحداث إنشاء الاشتراكات من البلوكشين
-    const filter = contract.filters.AllowanceCreated(null, merchantAddress);
-    const events = await contract.queryFilter(filter);
+    const events = await getAllowanceCreatedEvents();
 
     if (events.length === 0) {
       console.log("✅ لا توجد اشتراكات مسجلة لهذا التاجر.");
@@ -40,7 +62,10 @@ async function processRecurringPayments() {
       // queryFilter قد يعيد Log عادياً دون args؛ نتجاهله بأمان.
       if (!("args" in event)) continue;
 
-      const { payer, token } = event.args;
+      const { payer, token } = event.args as unknown as {
+        payer: string;
+        token: string;
+      };
       
       // قراءة حالة الاشتراك الحالية من العقد
       const allowance = await contract.getAllowance(payer, merchantAddress, token);
