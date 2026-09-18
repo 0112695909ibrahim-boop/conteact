@@ -24,7 +24,9 @@ const LOG_CHUNK_SIZE = 50_000;
 async function getAllowanceCreatedEvents() {
   const filter = contract.filters.AllowanceCreated(null, merchantAddress);
   const latestBlock = await provider.getBlockNumber();
-  const configuredStartBlock = Number(process.env.START_BLOCK || 0);
+  // Public RPC providers may prune very old logs. Override this with the
+  // contract deployment block when deploying to another network.
+  const configuredStartBlock = Number(process.env.START_BLOCK || 11_700_000);
   const startBlock = Number.isFinite(configuredStartBlock)
     ? configuredStartBlock
     : 0;
