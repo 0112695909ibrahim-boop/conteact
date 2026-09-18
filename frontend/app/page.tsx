@@ -1,59 +1,111 @@
 'use client'
 
 import { useState } from 'react'
-import { useAccount, useConnect, useDisconnect, useWriteContract, useReadContract } from 'wagmi'
+import {
+  useAccount,
+  useConnect,
+  useDisconnect,
+  useWriteContract,
+  useReadContract,
+} from 'wagmi'
 import { injected } from 'wagmi/connectors'
-import { parseUnits, formatUnits } from 'viem'
-import { CONTRACT_ADDRESS, CONTRACT_ABI } from '@/lib/contract'
+import { isAddress, maxUint256, parseUnits, formatUnits } from 'viem'
+import { CONTRACT_ADDRESS, CONTRACT_ABI, ERC20_ABI } from '@/lib/contract'
 
 export default function Home() {
   const { address, isConnected } = useAccount()
   const { connect } = useConnect()
   const { disconnect } = useDisconnect()
-  
-  // State for creating allowance
+
   const [recipient, setRecipient] = useState('')
   const [token, setToken] = useState('')
   const [amount, setAmount] = useState('')
   const [days, setDays] = useState('30')
+  const [message, setMessage] = useState('')
 
-  // Hooks for writing to the contract
+  const { writeContract: approveToken, isPending: isApproving } = useWriteContract()
   const { writeContract: createAllowance, isPending: isCreating } = useWriteContract()
   const { writeContract: cancelAllowance, isPending: isCanceling } = useWriteContract()
 
-  // Hook for reading from the contract (Example: checking an allowance)
+  const validAddresses = isAddress(recipient) && isAddress(token)
+  const validAmount = amount.trim() !== '' && Number(amount) > 0
+  const validDays = days.trim() !== '' && Number(days) >= 1
+
   const { data: allowanceData } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi: CONTRACT_ABI,
     functionName: 'getAllowance',
-    args: isConnected ? [address as `0x${string}`, recipient as `0x${string}`, token as `0x${string}`] : undefined,
-    query: { enabled: isConnected && !!recipient && !!token }
+    args:
+      isConnected && address && validAddresses
+        ? [address, recipient as `0x${string}`, token as `0x${string}`]
+        : undefined,
+    query: { enabled: isConnected && !!address && validAddresses },
   })
 
-  const handleCreate = () => {
-    if (!recipient || !token || !amount || !days) return alert("Please fill all fields")
-    
-    // تحويل الأيام إلى ثواني
-    const periodInSeconds = BigInt(parseInt(days)) * 24n * 60n * 60n
-    // تحويل المبلغ إلى Wei (نفترض أن العملة بها 18 خانة عشرية، مثل USDC على بعض الشبكات أو ETH. إذا كانت USDC استخدم 6)
-    const amountInWei = parseUnits(amount, 18) 
+  const getAmountAndPeriod = () => {
+    if (!validAmount || !validDays) {
+      throw new Error('Enter a valid amount and a period of at least 1 day.')
+    }
+    return {
+      amountInWei: parseUnits(amount, 18),
+      periodInSeconds:
+        BigInt(Math.floor(Number(days))) * BigInt(24 * 60 * 60),
+    }
+  }
 
-    createAllowance({
-      address: CONTRACT_ADDRESS,
-      abi: CONTRACT_ABI,
-      functionName: 'createAllowance',
-      args: [recipient as `0x${string}`, token as `0x${string}`, amountInWei, periodInSeconds],
-    })
+  const handleApprove = () => {
+    if (!isAddress(token)) {
+      setMessage('Enter a valid ERC20 token address first.')
+      return
+    }
+
+    try {
+      getAmountAndPeriod()
+      approveToken({
+        address: token,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [CONTRACT_ADDRESS, maxUint256],
+      })
+      setMessage('Approve transaction sent. Confirm it in your wallet.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Invalid approval details.')
+    }
+  }
+
+  const handleCreate = () => {
+    if (!isAddress(recipient) || !isAddress(token)) {
+      setMessage('Enter valid recipient and token addresses.')
+      return
+    }
+
+    try {
+      const { amountInWei, periodInSeconds } = getAmountAndPeriod()
+      createAllowance({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: 'createAllowance',
+        args: [recipient, token, amountInWei, periodInSeconds],
+      })
+      setMessage('Allowance transaction sent. Confirm it in your wallet.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Invalid allowance details.')
+    }
   }
 
   const handleCancel = () => {
-    if (!recipient || !token) return alert("Please enter recipient and token to cancel")
+    if (!isAddress(recipient) || !isAddress(token)) {
+      setMessage('Enter valid recipient and token addresses.')
+      return
+    }
+
     cancelAllowance({
       address: CONTRACT_ADDRESS,
       abi: CONTRACT_ABI,
       functionName: 'cancelAllowance',
-      args: [recipient as `0x${string}`, token as `0x${string}`],
+      args: [recipient, token],
     })
+    setMessage('Cancel transaction sent. Confirm it in your wallet.')
   }
 
   return (
@@ -63,7 +115,7 @@ export default function Home() {
         <p className="text-center text-gray-500 mb-8">Manage your crypto subscriptions securely.</p>
 
         {!isConnected ? (
-          <button 
+          <button
             onClick={() => connect({ connector: injected() })}
             className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
           >
@@ -71,7 +123,6 @@ export default function Home() {
           </button>
         ) : (
           <div className="space-y-6">
-            {/* معلومات المحفظة */}
             <div className="flex justify-between items-center bg-gray-100 p-4 rounded-lg">
               <span className="text-sm text-gray-600">Connected:</span>
               <div className="flex items-center gap-3">
@@ -80,40 +131,47 @@ export default function Home() {
               </div>
             </div>
 
-            {/* نموذج إنشاء اشتراك */}
             <div className="border-t pt-6">
               <h2 className="text-xl font-semibold mb-4">Create New Allowance</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input type="text" placeholder="Recipient Address (0x...)" value={recipient} onChange={e => setRecipient(e.target.value)} className="p-3 border rounded-lg" />
                 <input type="text" placeholder="Token Address (0x...)" value={token} onChange={e => setToken(e.target.value)} className="p-3 border rounded-lg" />
-                <input type="number" placeholder="Amount (e.g., 100)" value={amount} onChange={e => setAmount(e.target.value)} className="p-3 border rounded-lg" />
-                <input type="number" placeholder="Period in Days (e.g., 30)" value={days} onChange={e => setDays(e.target.value)} className="p-3 border rounded-lg" />
+                <input type="number" min="0" step="any" placeholder="Amount (18 decimals)" value={amount} onChange={e => setAmount(e.target.value)} className="p-3 border rounded-lg" />
+                <input type="number" min="1" step="1" placeholder="Period in Days" value={days} onChange={e => setDays(e.target.value)} className="p-3 border rounded-lg" />
               </div>
 
-              {/* نافذة التوقيع الواضح (Clear Signing UI) */}
               {recipient && token && amount && days && (
                 <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
-                  <p className="font-bold mb-1">🔒 You are approving:</p>
-                  <p>Withdrawal of <b>{amount} Tokens</b> every <b>{days} days</b> to <b>{recipient.slice(0,10)}...</b></p>
-                  <p className="text-xs mt-1 text-green-600">You can cancel this at any time.</p>
+                  <p className="font-bold mb-1">You are approving:</p>
+                  <p>Withdrawal of <b>{amount} tokens</b> every <b>{days} days</b> to <b>{recipient.slice(0, 10)}...</b></p>
+                  <p className="text-xs mt-1 text-green-600">Approve the token first, then create the allowance.</p>
                 </div>
               )}
 
-              <button 
-                onClick={handleCreate} 
-                disabled={isCreating}
-                className="w-full mt-4 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50"
-              >
-                {isCreating ? 'Confirm in Wallet...' : 'Approve & Create Allowance'}
-              </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                <button
+                  onClick={handleApprove}
+                  disabled={isApproving}
+                  className="bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
+                >
+                  {isApproving ? 'Confirm Approval...' : '1. Approve Token'}
+                </button>
+                <button
+                  onClick={handleCreate}
+                  disabled={isCreating}
+                  className="bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50"
+                >
+                  {isCreating ? 'Confirm Allowance...' : '2. Create Allowance'}
+                </button>
+              </div>
+              {message && <p className="mt-3 text-sm text-gray-600">{message}</p>}
             </div>
 
-            {/* إلغاء اشتراك */}
             <div className="border-t pt-6">
               <h2 className="text-xl font-semibold mb-4">Cancel Allowance</h2>
               <p className="text-sm text-gray-500 mb-3">Enter the recipient and token details to cancel an active subscription.</p>
-              <button 
-                onClick={handleCancel} 
+              <button
+                onClick={handleCancel}
                 disabled={isCanceling}
                 className="w-full bg-red-500 text-white py-3 rounded-lg font-semibold hover:bg-red-600 transition disabled:opacity-50"
               >
@@ -121,7 +179,6 @@ export default function Home() {
               </button>
             </div>
 
-            {/* عرض بيانات الاشتراك (إن وجد) */}
             {allowanceData && (
               <div className="border-t pt-6">
                 <h2 className="text-xl font-semibold mb-4">Current Allowance Status</h2>
@@ -130,7 +187,7 @@ export default function Home() {
                     amount: formatUnits(allowanceData[0], 18),
                     period_days: Number(allowanceData[1]) / 86400,
                     isActive: allowanceData[3],
-                    next_withdraw: new Date(Number(allowanceData[4]) * 1000).toLocaleString()
+                    next_withdraw: new Date(Number(allowanceData[4]) * 1000).toLocaleString(),
                   }, null, 2)}
                 </pre>
               </div>
