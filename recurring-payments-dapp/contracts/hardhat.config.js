@@ -8,9 +8,9 @@ const accounts = privateKey ? [privateKey] : [];
 module.exports = {
   solidity: "0.8.20",
   networks: {
-    // شبكة الاختبار Base Sepolia
-    baseSepolia: {
-      url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
+    // شبكة اختبار Ethereum Sepolia
+    sepolia: {
+      url: process.env.SEPOLIA_RPC_URL || "https://rpc.sepolia.org",
       accounts,
     },
     // شبكة Base الرئيسية - للاستخدام لاحقاً
@@ -21,7 +21,7 @@ module.exports = {
   },
   etherscan: {
     apiKey: {
-      baseSepolia: process.env.BASESCAN_API_KEY || "",
+      sepolia: process.env.ETHERSCAN_API_KEY || "",
       base: process.env.BASESCAN_API_KEY || "",
     },
   },
