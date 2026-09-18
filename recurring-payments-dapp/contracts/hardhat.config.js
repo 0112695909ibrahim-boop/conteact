@@ -10,7 +10,7 @@ module.exports = {
   networks: {
     // شبكة اختبار Ethereum Sepolia
     sepolia: {
-      url: process.env.SEPOLIA_RPC_URL || "https://rpc.sepolia.org",
+      url: process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com",
       accounts,
     },
     // شبكة Base الرئيسية - للاستخدام لاحقاً
