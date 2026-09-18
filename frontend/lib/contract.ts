@@ -1,4 +1,4 @@
-export const CONTRACT_ADDRESS = "0xYOUR_DEPLOYED_CONTRACT_ADDRESS_HERE"; // ⚠️ ضع عنوان عقدك هنا بعد النشر
+export const CONTRACT_ADDRESS = "0xD78480b7eEF2ECd2187f1e51BF5644C6b4C5D1bC";
 
 export const CONTRACT_ABI = [
   {
